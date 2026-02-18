@@ -6,14 +6,20 @@ Variables available:
 #}
 
 {% set formName = formName|default('') %}
-{% set siteKey = field.customParameters.site_key|default('') %}
+{#
+  siteKey is a public key — safe to embed in HTML, but we escape it to prevent
+  any accidental XSS if the value ever contains unexpected characters.
+  It is stored in a data-attribute and read from JS, never interpolated
+  directly into a JS string literal (which would require |e('js')).
+#}
+{% set siteKey = field.customParameters.site_key|default('')|e('html_attr') %}
 {% set explicitConsent = field.properties.explicitConsent|default(true) %}
 
 {# The HTML form element id is always "mauticform" + formName (e.g. "mauticform_test2") #}
 {% set formElementId = 'mauticform' ~ formName %}
 
 {# A safe JS identifier: strip non-alphanumeric chars (leading underscore → gone) #}
-{% set formJsId = formName|replace({'_': '', '-': '', ' ': ''}) %}
+{% set formJsId = formName|replace({'_': '', '-': '', ' ': ''})|e('html_attr') %}
 
 {# Field HTML id follows Mautic convention: "mauticform_input" + formName + "_" + alias #}
 {% set fieldInputId = 'mauticform_input' ~ formName ~ '_' ~ field.alias %}
@@ -35,7 +41,12 @@ Variables available:
 {% set privacyLinkPrefix = strings.privacy_link_prefix|default('More information can be found in our ') %}
 {% set privacyLinkWord   = strings.privacy_link_word|default('privacy policy') %}
 {% set privacyLinkSuffix = strings.privacy_link_suffix|default('.') %}
-{% set privacyUrl        = field.properties.privacyUrl|default('') %}
+{#
+  Strip any protocol that isn't http(s) to prevent javascript: or data: URIs.
+  Twig's |e filter handles HTML-entity escaping in the href attribute.
+#}
+{% set privacyUrlRaw = field.properties.privacyUrl|default('') %}
+{% set privacyUrl = (privacyUrlRaw matches '/^https?:\\/\\//i') ? privacyUrlRaw : '' %}
 
 {# ================================================================ #}
 {# BUILDER MODE: static placeholder only, no scripts, no inputs     #}
@@ -231,7 +242,11 @@ Variables available:
     }
     </style>
 
-    {# Unique JS namespace per field to support multiple forms on one page #}
+    {#
+      The site key and other runtime values are passed via data-attributes on the
+      provider element. This keeps all dynamic values out of JS string literals,
+      preventing XSS via template injection and making CSP configuration easier.
+    #}
     <script>
     (() => {
         'use strict';
@@ -240,7 +255,11 @@ Variables available:
         window['ixCaptchaOnLoad_{{ formJsId }}'] = () => {
             if (typeof grecaptcha === 'undefined') return;
 
-            grecaptcha.execute('{{ siteKey }}', { action: 'form' }).then(token => {
+            const provider = document.getElementById('ixcaptcha_provider_{{ formJsId }}');
+            const siteKey  = provider?.dataset.siteKey ?? '';
+            if (!siteKey) return;
+
+            grecaptcha.execute(siteKey, { action: 'submit' }).then(token => {
                 const tokenInput = document.getElementById('{{ fieldInputId }}');
                 if (tokenInput) tokenInput.value = token;
 
@@ -261,6 +280,13 @@ Variables available:
 
         {# Run setup once DOM is fully loaded #}
         const ixCaptchaInit_{{ formJsId }} = () => {
+
+            const provider = document.getElementById('ixcaptcha_provider_{{ formJsId }}');
+            if (!provider) return;
+
+            const siteKey  = provider.dataset.siteKey  ?? '';
+            const callback = provider.dataset.callback ?? '';
+            if (!siteKey || !callback) return;
 
             {% if explicitConsent %}
 
@@ -286,19 +312,16 @@ Variables available:
                 const wrapper = document.getElementById('{{ fieldInputId }}_consent');
                 if (wrapper) wrapper.style.display = 'none';
 
-                {# Dynamically load reCAPTCHA API #}
-                const provider = document.getElementById('ixcaptcha_provider_{{ formJsId }}');
-                if (!provider) return;
-
+                {# Dynamically load reCAPTCHA API — src built from data-attributes, not Twig interpolation #}
                 const script   = document.createElement('script');
-                script.src     = 'https://www.google.com/recaptcha/api.js?render={{ siteKey }}&onload=ixCaptchaOnLoad_{{ formJsId }}';
+                script.src     = 'https://www.google.com/recaptcha/api.js?render=' + encodeURIComponent(siteKey) + '&onload=' + encodeURIComponent(callback);
                 script.async   = true;
                 script.onerror = () => {
                     {# Restore consent button on error #}
                     consentBtn.disabled = false;
                     consentBtn.classList.remove('is-loading');
                     if (wrapper) wrapper.style.display = '';
-                    alert('{{ failedTxt|e('js') }}');
+                    alert(provider.dataset.errorMsg ?? 'Security check failed. Please try again.');
                 };
                 provider.appendChild(script);
             });
@@ -306,7 +329,6 @@ Variables available:
             {% else %}
 
             {# Implicit mode: load reCAPTCHA immediately, no consent needed #}
-            {# Add pending state to submit button and show blocked hint above it #}
             const form      = document.getElementById('{{ formElementId }}');
             const submitBtn = form?.querySelector('[type="submit"]');
             const hint      = document.getElementById('{{ fieldInputId }}_hint');
@@ -316,11 +338,8 @@ Variables available:
             }
             if (hint) hint.classList.add('is-visible');
 
-            const provider = document.getElementById('ixcaptcha_provider_{{ formJsId }}');
-            if (!provider) return;
-
             const script = document.createElement('script');
-            script.src   = 'https://www.google.com/recaptcha/api.js?render={{ siteKey }}&onload=ixCaptchaOnLoad_{{ formJsId }}';
+            script.src   = 'https://www.google.com/recaptcha/api.js?render=' + encodeURIComponent(siteKey) + '&onload=' + encodeURIComponent(callback);
             script.async = true;
             provider.appendChild(script);
 
@@ -387,7 +406,16 @@ Variables available:
             </div>
         {% endif %}
 
-        <div id="ixcaptcha_provider_{{ formJsId }}"></div>
+        {#
+          All runtime values that JS needs are stored as data-attributes here.
+          Twig escapes them as HTML attributes (|e('html_attr') applied above to
+          siteKey and formJsId). The JS reads them via dataset — no string
+          interpolation into script literals, which also eases CSP configuration.
+        #}
+        <div id="ixcaptcha_provider_{{ formJsId }}"
+             data-site-key="{{ siteKey }}"
+             data-callback="ixCaptchaOnLoad_{{ formJsId }}"
+             data-error-msg="{{ failedTxt|e('html_attr') }}"></div>
 
         {#
             Blocked hint: visible sichtbarer Hinweis über dem Absende-Button,
