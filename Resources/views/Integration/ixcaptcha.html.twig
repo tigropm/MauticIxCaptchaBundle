@@ -1,0 +1,418 @@
+{#
+Variables available:
+  - field       (the field entity/array, with field.customParameters from addFormField)
+  - formName    (string with leading underscore, e.g. "_test2" → form id = "mauticform_test2")
+  - inForm      (bool - true when rendered inside the form builder UI)
+#}
+
+{% set formName = formName|default('') %}
+{% set siteKey = field.customParameters.site_key|default('') %}
+{% set explicitConsent = field.properties.explicitConsent|default(true) %}
+
+{# The HTML form element id is always "mauticform" + formName (e.g. "mauticform_test2") #}
+{% set formElementId = 'mauticform' ~ formName %}
+
+{# A safe JS identifier: strip non-alphanumeric chars (leading underscore → gone) #}
+{% set formJsId = formName|replace({'_': '', '-': '', ' ': ''}) %}
+
+{# Field HTML id follows Mautic convention: "mauticform_input" + formName + "_" + alias #}
+{% set fieldInputId = 'mauticform_input' ~ formName ~ '_' ~ field.alias %}
+{% set fieldName    = 'mauticform[' ~ field.alias ~ ']' %}
+
+{#
+  Pick translated strings for the locale saved in field.properties.language (set in Field-Settings).
+  Falls back to en_US, then to hardcoded English defaults.
+#}
+{% set fieldLocale  = field.properties.language|default('en_US') %}
+{% set allTranslations = field.customParameters.translations|default({}) %}
+{% set strings      = allTranslations[fieldLocale]|default(allTranslations['en_US']|default({})) %}
+
+{% set consentNotice    = strings.consent_notice|default('To submit this form, you must consent to cookie storage. Data will be transmitted to Google (USA).') %}
+{% set consentButtonTxt = strings.consent_button|default('Accept cookies and continue') %}
+{% set loadingTxt       = strings.loading|default('Loading...') %}
+{% set blockedTxt       = strings.submit_blocked|default('Please accept cookies first') %}
+{% set failedTxt        = strings.failed|default('Security check failed. Please try again.') %}
+{% set privacyLinkPrefix = strings.privacy_link_prefix|default('More information can be found in our ') %}
+{% set privacyLinkWord   = strings.privacy_link_word|default('privacy policy') %}
+{% set privacyLinkSuffix = strings.privacy_link_suffix|default('.') %}
+{% set privacyUrl        = field.properties.privacyUrl|default('') %}
+
+{# ================================================================ #}
+{# BUILDER MODE: static placeholder only, no scripts, no inputs     #}
+{# ================================================================ #}
+{% if inForm is defined and inForm %}
+
+    {#
+        id="mauticform_{{ field.id }}" is REQUIRED in builder mode.
+        Mautic's form.js identifies existing field rows via:
+            mQuery('#mauticform_' + response.fieldId).closest('.form-field-wrapper')
+        Without this id the JS cannot find the element after an edit,
+        assumes it is a new field, and inserts a duplicate instead of replacing.
+    #}
+    <div class="mauticform-row mauticform-ixcaptcha ixcaptcha-builder-placeholder"
+         id="mauticform_{{ field.id }}">
+        {% if field.showLabel %}
+            <div class="ixcaptcha-builder-label">{{ field.label }}</div>
+        {% endif %}
+        <div class="ixcaptcha-builder-badge">
+            <strong>reCAPTCHA v3</strong>
+            {% if explicitConsent %}
+                &nbsp;<small class="ixcaptcha-builder-consent-hint">&#x1F512; {{ 'mautic.ixcaptcha.form.explicit_consent'|trans }}</small>
+            {% endif %}
+        </div>
+    </div>
+
+{# ================================================================ #}
+{# FRONTEND MODE: full widget                                        #}
+{# ================================================================ #}
+{% else %}
+
+    <style>
+    /* ── ixCaptcha widget styles ─────────────────────────────────────── */
+
+    /* Visually hidden but screen-reader-accessible (WCAG 2.1 SC 1.3.1) */
+    .sr-only {
+        position:    absolute;
+        width:       1px;
+        height:      1px;
+        padding:     0;
+        margin:      -1px;
+        overflow:    hidden;
+        clip:        rect(0, 0, 0, 0);
+        white-space: nowrap;
+        border:      0;
+    }
+
+    /* Builder placeholder */
+    .ixcaptcha-builder-placeholder {
+        padding:       0.75rem 1rem;
+        background:    #f5f5f5;
+        border:        1px dashed #ccc;
+        border-radius: 0.25rem;
+    }
+    .ixcaptcha-builder-label {
+        font-size:     0.8125rem;
+        color:         #555;
+        margin-bottom: 0.375rem;
+    }
+    .ixcaptcha-builder-badge {
+        text-align: center;
+    }
+    .ixcaptcha-builder-consent-hint {
+        color: #888;
+    }
+
+    /* Consent wrapper */
+
+    .mauticform-ixcaptcha * {
+	    font-family: Arial, sans-serif !important;
+    }
+
+    .ixcaptcha-consent-wrapper {
+        margin:        0.625rem 0;
+        padding:       1rem;
+        background:    #f9f9f9;
+        border:        1px solid #ddd;
+        border-radius: 0.25rem;
+    }
+
+    /* Consent notice text */
+    .ixcaptcha-consent-notice {
+        margin:      0 0 0.625rem;
+        font-size:   1rem;
+        font-weight: bold;
+        line-height: 1.4;
+        color:       #333;
+    }
+
+    /* Privacy info line */
+    .ixcaptcha-privacy-info {
+        margin:    0 0 0.75rem;
+        font-size: 0.9rem;
+        color:     #555;
+    }
+    .ixcaptcha-privacy-info a {
+        color: #4e79a7;
+    }
+    .ixcaptcha-privacy-info a:hover {
+        text-decoration: underline;
+    }
+
+    /* ── Consent button ──────────────────────────────────────────────── */
+    .ixcaptcha-consent-btn {
+        position:      relative;
+        display:       inline-flex;
+        align-items:   center;
+        gap:           0.5rem;
+        font-size:     1rem;
+        padding:       0.625rem 1.375rem;
+        cursor:        pointer;
+        background:    #4e79a7;
+        color:         #fff;
+        border:        none;
+        border-radius: 0.25rem;
+        transition:    background 0.2s ease, opacity 0.2s ease;
+        overflow:      hidden;
+    }
+    .ixcaptcha-consent-btn:hover:not(:disabled) {
+        background: #3b6390;
+    }
+    .ixcaptcha-consent-btn:disabled {
+        cursor:  not-allowed;
+        opacity: 0.75;
+    }
+
+    /* Spinner ring — hidden by default, shown via .is-loading */
+    .ixcaptcha-consent-btn .ixcaptcha-spinner {
+        display:       none;
+        width:         1em;
+        height:        1em;
+        flex-shrink:   0;
+        border:        2px solid rgba(255, 255, 255, 0.35);
+        border-top-color: #fff;
+        border-radius: 50%;
+    }
+    .ixcaptcha-consent-btn.is-loading .ixcaptcha-spinner {
+        display:   block;
+        animation: ixcaptcha-spin 0.7s linear infinite;
+    }
+    /* Hide label text while loading so only spinner + sr-label remain */
+    .ixcaptcha-consent-btn.is-loading .ixcaptcha-btn-label {
+        display: none;
+    }
+
+    /* ── Submit-button blocked hint ─────────────────────────────────── */
+    /*
+     * Visible hint shown above the submit button while reCAPTCHA is
+     * loading. Uses role="status" for live-region announcements.
+     */
+    .ixcaptcha-submit-hint {
+        display:       none;        /* hidden until JS activates it */
+        align-items:   center;
+        gap:           0.375rem;
+        margin-bottom: 0.5rem;
+        font-size:     0.8125rem;
+        color:         #6b7280;
+    }
+    .ixcaptcha-submit-hint.is-visible {
+        display: flex;
+    }
+    /* Small animated dot-trio indicator next to the hint text */
+    .ixcaptcha-submit-hint::before {
+        content:       '';
+        display:       inline-block;
+        width:         0.75em;
+        height:        0.75em;
+        flex-shrink:   0;
+        border:        2px solid #9ca3af;
+        border-top-color: black;
+        border-radius: 50%;
+        animation:     ixcaptcha-spin 0.9s linear infinite;
+    }
+
+    /* ── Submit-button loading state ─────────────────────────────────── */
+    /*
+     * Applied to the form's native submit button while reCAPTCHA is
+     * loading and verifying. A subtle pulsing glow signals "working".
+     */
+    .ixcaptcha-submit-pending {
+        animation: ixcaptcha-pulse 1.4s ease-in-out infinite !important;
+        cursor:    not-allowed !important;
+    }
+
+    /* ── Keyframes ───────────────────────────────────────────────────── */
+    @keyframes ixcaptcha-spin {
+        to { transform: rotate(360deg); }
+    }
+
+    @keyframes ixcaptcha-pulse {
+        0%, 100% { opacity: 0.45; }
+        50%       { opacity: 0.8;  }
+    }
+    </style>
+
+    {# Unique JS namespace per field to support multiple forms on one page #}
+    <script>
+    (() => {
+        'use strict';
+
+        {# reCAPTCHA onload callback: called once the API script is ready #}
+        window['ixCaptchaOnLoad_{{ formJsId }}'] = () => {
+            if (typeof grecaptcha === 'undefined') return;
+
+            grecaptcha.execute('{{ siteKey }}', { action: 'form' }).then(token => {
+                const tokenInput = document.getElementById('{{ fieldInputId }}');
+                if (tokenInput) tokenInput.value = token;
+
+                {# Re-enable submit button and remove pending state #}
+                const form      = document.getElementById('{{ formElementId }}');
+                const submitBtn = form?.querySelector('[type="submit"]');
+                if (submitBtn) {
+                    submitBtn.disabled = false;
+                    submitBtn.classList.remove('ixcaptcha-submit-pending');
+                    submitBtn.style.cursor  = '';
+                    submitBtn.style.opacity = '';
+                }
+                {# Hide the blocked hint #}
+                const hint = document.getElementById('{{ fieldInputId }}_hint');
+                if (hint) hint.classList.remove('is-visible');
+            });
+        };
+
+        {# Run setup once DOM is fully loaded #}
+        const ixCaptchaInit_{{ formJsId }} = () => {
+
+            {% if explicitConsent %}
+
+            const consentBtn = document.getElementById('{{ fieldInputId }}_consent_btn');
+            if (!consentBtn) return;
+
+            {# Disable submit button immediately and show blocked hint above it #}
+            const form      = document.getElementById('{{ formElementId }}');
+            const submitBtn = form?.querySelector('[type="submit"]');
+            const hint      = document.getElementById('{{ fieldInputId }}_hint');
+            if (submitBtn) {
+                submitBtn.disabled = true;
+                submitBtn.classList.add('ixcaptcha-submit-pending');
+            }
+            if (hint) hint.classList.add('is-visible');
+
+            consentBtn.addEventListener('click', () => {
+                {# Switch button to spinner state #}
+                consentBtn.disabled = true;
+                consentBtn.classList.add('is-loading');
+
+                {# Hide consent box #}
+                const wrapper = document.getElementById('{{ fieldInputId }}_consent');
+                if (wrapper) wrapper.style.display = 'none';
+
+                {# Dynamically load reCAPTCHA API #}
+                const provider = document.getElementById('ixcaptcha_provider_{{ formJsId }}');
+                if (!provider) return;
+
+                const script   = document.createElement('script');
+                script.src     = 'https://www.google.com/recaptcha/api.js?render={{ siteKey }}&onload=ixCaptchaOnLoad_{{ formJsId }}';
+                script.async   = true;
+                script.onerror = () => {
+                    {# Restore consent button on error #}
+                    consentBtn.disabled = false;
+                    consentBtn.classList.remove('is-loading');
+                    if (wrapper) wrapper.style.display = '';
+                    alert('{{ failedTxt|e('js') }}');
+                };
+                provider.appendChild(script);
+            });
+
+            {% else %}
+
+            {# Implicit mode: load reCAPTCHA immediately, no consent needed #}
+            {# Add pending state to submit button and show blocked hint above it #}
+            const form      = document.getElementById('{{ formElementId }}');
+            const submitBtn = form?.querySelector('[type="submit"]');
+            const hint      = document.getElementById('{{ fieldInputId }}_hint');
+            if (submitBtn) {
+                submitBtn.disabled = true;
+                submitBtn.classList.add('ixcaptcha-submit-pending');
+            }
+            if (hint) hint.classList.add('is-visible');
+
+            const provider = document.getElementById('ixcaptcha_provider_{{ formJsId }}');
+            if (!provider) return;
+
+            const script = document.createElement('script');
+            script.src   = 'https://www.google.com/recaptcha/api.js?render={{ siteKey }}&onload=ixCaptchaOnLoad_{{ formJsId }}';
+            script.async = true;
+            provider.appendChild(script);
+
+            {% endif %}
+        };
+
+        {# Wait for DOM ready before wiring up event listeners #}
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', ixCaptchaInit_{{ formJsId }});
+        } else {
+            ixCaptchaInit_{{ formJsId }}();
+        }
+
+    })();
+    </script>
+
+    {#
+        role="group" + aria-labelledby:
+        Da dieses Widget kein klassisches <input>-Feld enthält, ist <label> hier
+        semantisch falsch (kein for/id-Bezug möglich). Stattdessen wird das
+        umschließende <div> zur ARIA-Gruppe erklärt und über aria-labelledby
+        mit dem sichtbaren Feldnamen verknüpft. Screenreader lesen den Titel
+        beim Fokussieren des Consent-Buttons korrekt vor (WCAG 2.1 SC 1.3.1).
+    #}
+    <div class="mauticform-row mauticform-ixcaptcha"
+         id="mauticform{{ formName }}_{{ field.id|default(field.alias) }}"
+         role="group"
+         aria-labelledby="mauticform_label{{ formName }}_{{ field.alias }}">
+
+        {#
+            Feldname: als <p> statt <label>, da kein Input verknüpft werden kann.
+            Visuell identisch zu einem Mautic-Label; barrierefrei über aria-labelledby
+            auf dem group-Div verknüpft. sr-only blendet es visuell aus, hält
+            es aber für Screenreader im DOM (WCAG 2.1 SC 1.3.1).
+        #}
+        <p class="mauticform-label{% if not field.showLabel %} sr-only{% endif %}"
+           id="mauticform_label{{ formName }}_{{ field.alias }}">
+            {{ field.label }}
+        </p>
+
+        {% if explicitConsent %}
+            <div class="ixcaptcha-consent-wrapper"
+                 id="{{ fieldInputId }}_consent">
+                <p class="ixcaptcha-consent-notice">
+                    {{ consentNotice }}
+                </p>
+                {% if privacyUrl %}
+                <p class="ixcaptcha-privacy-info">
+                    {{ privacyLinkPrefix }}<a href="{{ privacyUrl }}"
+                       target="_blank"
+                       rel="noopener noreferrer">{{ privacyLinkWord }}</a>{{ privacyLinkSuffix }}
+                </p>
+                {% endif %}
+                <button type="button"
+                        id="{{ fieldInputId }}_consent_btn"
+                        class="ixcaptcha-consent-btn">
+                    {# Spinner ring — visible only while .is-loading is active #}
+                    <span class="ixcaptcha-spinner" aria-hidden="true"></span>
+                    {# Button label — hidden while loading, always read by screen readers #}
+                    <span class="ixcaptcha-btn-label">{{ consentButtonTxt }}</span>
+                    {# Screen-reader-only loading text announced when spinner appears #}
+                    <span class="sr-only ixcaptcha-loading-label">{{ loadingTxt }}</span>
+                </button>
+            </div>
+        {% endif %}
+
+        <div id="ixcaptcha_provider_{{ formJsId }}"></div>
+
+        {#
+            Blocked hint: visible sichtbarer Hinweis über dem Absende-Button,
+            solange reCAPTCHA noch lädt / der Token noch nicht vorliegt.
+            role="status" = ARIA-Live-Region (polite), wird von Screenreadern
+            automatisch vorgelesen, sobald der Text eingefügt wird.
+            Initial leer und versteckt; JS setzt .is-visible und befüllt nichts —
+            der Text steht bereits im DOM, CSS schaltet ihn ein/aus.
+        #}
+        <p class="ixcaptcha-submit-hint"
+           id="{{ fieldInputId }}_hint"
+           role="status"
+           aria-live="polite">
+            {{ blockedTxt }}
+        </p>
+
+        <div style="position:relative;">
+            <span class="mauticform-errormsg" style="display:none;"></span>
+        </div>
+
+        {# Hidden input that receives the reCAPTCHA token before form submission #}
+        <input type="hidden"
+               id="{{ fieldInputId }}"
+               name="{{ fieldName }}"
+               value="">
+    </div>
+
+{% endif %}

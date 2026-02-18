@@ -1,0 +1,30 @@
+{
+    "name": "mautic/ixcaptcha-bundle",
+    "description": "GDPR-compliant Google reCAPTCHA v3 integration for Mautic",
+    "type": "mautic-plugin",
+    "version": "1.0.0",
+    "keywords": [
+        "mautic",
+        "plugin",
+        "recaptcha",
+        "captcha",
+        "gdpr",
+        "spam protection"
+    ],
+    "license": "MIT",
+    "authors": [
+        {
+            "name": "TGR",
+            "email": "tgr@index.de"
+        }
+    ],
+    "require": {
+        "php": "^8.0",
+        "guzzlehttp/guzzle": "^7.0"
+    },
+    "autoload": {
+        "psr-4": {
+            "MauticPlugin\\MauticIxCaptchaBundle\\": ""
+        }
+    }
+}
