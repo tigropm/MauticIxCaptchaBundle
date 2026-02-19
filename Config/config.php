@@ -27,39 +27,14 @@ return [
 
         'integrations' => [
             'mautic.integration.ixcaptcha' => [
-                'class'     => IxCaptchaIntegration::class,
+                'class' => IxCaptchaIntegration::class,
                 /*
-                 * AbstractIntegration constructor (Mautic 5 / Symfony 5.4):
-                 *   EventDispatcherInterface, CacheStorageHelper, EntityManager,
-                 *   SessionInterface, RequestStack, RouterInterface,
-                 *   TranslatorInterface, LoggerInterface, EncryptionHelper,
-                 *   LeadModel, CompanyModel, PathsHelper, NotificationModel,
-                 *   FieldModel, IntegrationEntityModel, DoNotContact
-                 *
-                 * In Mautic 6+ (Symfony 6) SessionInterface was removed from
-                 * the constructor — the 'session' entry below becomes a no-op
-                 * because Mautic 6 resolves the constructor via autowiring and
-                 * ignores surplus positional arguments for deprecated parameters.
-                 * The config.php approach keeps Mautic 5 compatibility intact.
+                 * No explicit 'arguments' here — Symfony autowiring resolves
+                 * the AbstractIntegration constructor automatically.
+                 * This makes the plugin compatible with Mautic 5 (SessionInterface),
+                 * Mautic 6, and Mautic 7 (SessionInterface removed) without
+                 * any version-specific branching.
                  */
-                'arguments' => [
-                    'event_dispatcher',
-                    'mautic.helper.cache_storage',
-                    'doctrine.orm.entity_manager',
-                    'session',
-                    'request_stack',
-                    'router',
-                    'translator',
-                    'logger',
-                    'mautic.helper.encryption',
-                    'mautic.lead.model.lead',
-                    'mautic.lead.model.company',
-                    'mautic.helper.paths',
-                    'mautic.core.model.notification',
-                    'mautic.lead.model.field',
-                    'mautic.plugin.model.integration_entity',
-                    'mautic.lead.model.dnc',
-                ],
                 'tags' => [
                     'mautic.integration',
                 ],
