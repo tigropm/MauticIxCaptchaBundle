@@ -14,6 +14,9 @@ Variables available:
 #}
 {% set siteKey = field.customParameters.site_key|default('')|e('html_attr') %}
 {% set explicitConsent = field.properties.explicitConsent|default(true) %}
+{# btnColor comes pre-normalised as #rrggbb from IxCaptchaIntegration::getButtonColor() — safe for CSS output as-is #}
+{% set btnColorRaw = field.customParameters.btn_color|default('#f49e00') %}
+{% set btnColor = (btnColorRaw matches '/^#?[0-9a-fA-F]{6}$/') ? ('#' ~ btnColorRaw|replace({'#': ''})) : '#f49e00' %}
 
 {# The HTML form element id is always "mauticform" + formName (e.g. "mauticform_test2") #}
 {% set formElementId = 'mauticform' ~ formName %}
@@ -38,9 +41,9 @@ Variables available:
 {% set loadingTxt       = strings.loading|default('Loading...') %}
 {% set blockedTxt       = strings.submit_blocked|default('Please accept cookies first') %}
 {% set failedTxt        = strings.failed|default('Security check failed. Please try again.') %}
-{% set privacyLinkPrefix = strings.privacy_link_prefix|default('More information can be found in our ') %}
-{% set privacyLinkWord   = strings.privacy_link_word|default('privacy policy') %}
-{% set privacyLinkSuffix = strings.privacy_link_suffix|default('.') %}
+{% set privacyLinkPrefix = strings.privacy_link_prefix is defined ? strings.privacy_link_prefix : '' %}
+{% set privacyLinkWord   = strings.privacy_link_word is defined ? strings.privacy_link_word : 'Privacy Policy' %}
+{% set privacyLinkSuffix = strings.privacy_link_suffix is defined ? strings.privacy_link_suffix : '' %}
 {#
   Strip any protocol that isn't http(s) to prevent javascript: or data: URIs.
   Twig's |e filter handles HTML-entity escaping in the href attribute.
@@ -80,6 +83,9 @@ Variables available:
 
     <style>
     /* ── ixCaptcha widget styles ─────────────────────────────────────── */
+    :root {
+        --ixcaptcha-btn-bg: {{ btnColor }};
+    }
 
     /* Visually hidden but screen-reader-accessible (WCAG 2.1 SC 1.3.1) */
     .sr-only {
@@ -124,7 +130,7 @@ Variables available:
         padding:       1rem;
         background:    #f9f9f9;
         border:        1px solid #ddd;
-        border-radius: 0.25rem;
+        /*border-radius: 0.25rem;*/
     }
 
     /* Consent notice text */
@@ -143,7 +149,7 @@ Variables available:
         color:     #555;
     }
     .ixcaptcha-privacy-info a {
-        color: #4e79a7;
+        color: #666666;
     }
     .ixcaptcha-privacy-info a:hover {
         text-decoration: underline;
@@ -158,15 +164,15 @@ Variables available:
         font-size:     1rem;
         padding:       0.625rem 1.375rem;
         cursor:        pointer;
-        background:    #4e79a7;
-        color:         #fff;
+        background:    var(--ixcaptcha-btn-bg);
+        color:         #000;
         border:        none;
-        border-radius: 0.25rem;
+        /*border-radius: 0.25rem;*/
         transition:    background 0.2s ease, opacity 0.2s ease;
         overflow:      hidden;
     }
     .ixcaptcha-consent-btn:hover:not(:disabled) {
-        background: #3b6390;
+        filter: brightness(0.95);
     }
     .ixcaptcha-consent-btn:disabled {
         cursor:  not-allowed;

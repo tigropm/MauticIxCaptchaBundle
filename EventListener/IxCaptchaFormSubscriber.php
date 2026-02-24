@@ -64,6 +64,7 @@ class IxCaptchaFormSubscriber implements EventSubscriberInterface
             'template'     => '@MauticIxCaptcha/Integration/ixcaptcha.html.twig',
             'site_key'     => $siteKey,
             'translations' => $translations,
+            'btn_color'    => $integration->getButtonColor(),
             // Pre-filled label for new fields (handled by FieldTypeDefaultLabelExtension).
             'defaultLabel' => $this->translator->trans('mautic.ixcaptcha.field.default_label'),
 
