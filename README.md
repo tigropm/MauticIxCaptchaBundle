@@ -61,6 +61,9 @@ php /path/to/mautic/bin/console cache:clear
 
 ### 1. Enable the plugin
 
+![plugin-settings-activate.jpg](img/plugin-settings-activate.jpg)
+![plugin-settings-Features.jpg](img/plugin-settings-Features.jpg)
+
 **Mautic Admin → Settings → Plugins → ixCaptcha (reCAPTCHA v3)** → toggle to **Yes** → enter your keys.
 
 | Setting | Description |
@@ -74,6 +77,9 @@ php /path/to/mautic/bin/console cache:clear
 > `0.3` = permissive · `0.5` = balanced (recommended) · `0.7` = strict
 
 ### 2. Add the field to a form
+
+![field-generel.jpg](img/field-generel.jpg)
+![field-settings.jpg](img/field-settings.jpg)
 
 1. Open a form in the Mautic form builder
 2. Add a field of type **reCAPTCHA v3**
