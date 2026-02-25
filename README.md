@@ -11,13 +11,14 @@ A privacy-first Google reCAPTCHA v3 plugin for Mautic forms. No Google scripts a
 | ✅ **GDPR / DSGVO compliant** | Google script loaded only after explicit user consent |
 | ✅ **reCAPTCHA v3** | Invisible, score-based bot detection — no challenges for real users |
 | ✅ **Configurable score threshold** | Set the minimum score in the Mautic admin UI (default: 0.5) |
+| ✅ **Configurable button colour** | Set the consent button colour in the Mautic admin UI (default: #f49e00) |
 | ✅ **Remote IP forwarding** | Visitor IP sent to Google for better accuracy |
 | ✅ **Token validation** | Server-side format check before the Google API call |
 | ✅ **Submit-button protection** | Button is disabled until the reCAPTCHA token is ready |
 | ✅ **Accessible** | WCAG 2.1 — ARIA live regions, screen-reader support, keyboard accessible |
 | ✅ **Multilingual** | German, English, French; add more with one `.ini` file |
 | ✅ **Modern code** | PHP 8.1+, strict types, Symfony HttpClient, no direct Guzzle dependency |
-| ✅ **Mautic 5 / 6 / 7** | Tested on Mautic 5; forward-compatible with 6 and 7 |
+| ✅ **Mautic 5 / 6 / 7** | Tested on Mautic 5 and 7; forward-compatible with 6.x |
 
 ---
 
@@ -35,7 +36,7 @@ A privacy-first Google reCAPTCHA v3 plugin for Mautic forms. No Google scripts a
 
 ```bash
 cd /path/to/mautic/plugins/
-git clone https://github.com/tgr-digital/mautic-ixcaptcha-bundle MauticIxCaptchaBundle
+git clone https://github.com/tigropm/MauticIxCaptchaBundle MauticIxCaptchaBundle
 php /path/to/mautic/bin/console cache:clear
 php /path/to/mautic/bin/console mautic:plugins:reload
 ```
@@ -45,6 +46,14 @@ php /path/to/mautic/bin/console mautic:plugins:reload
 1. Download the repository as a ZIP
 2. Extract to `plugins/MauticIxCaptchaBundle/` (folder name must match exactly)
 3. Run `php bin/console cache:clear && php bin/console mautic:plugins:reload`
+
+### Update
+
+```bash
+cd /path/to/mautic/plugins/MauticIxCaptchaBundle
+git pull
+php /path/to/mautic/bin/console cache:clear
+```
 
 ---
 
@@ -59,6 +68,7 @@ php /path/to/mautic/bin/console mautic:plugins:reload
 | **Site Key** | Public key from Google reCAPTCHA admin |
 | **Secret Key** | Private key — never exposed to users |
 | **Minimum Score** | `0.0` – `1.0`. Requests below this score are rejected. Default: `0.5` |
+| **Button Colour** | Background colour of the consent button (hex, e.g. `#f49e00`). Default: orange |
 
 > **Minimum Score guidelines:**
 > `0.3` = permissive · `0.5` = balanced (recommended) · `0.7` = strict
@@ -77,6 +87,18 @@ php /path/to/mautic/bin/console mautic:plugins:reload
 
 ---
 
+## Consent banner
+
+When explicit consent mode is enabled (default), the following banner is shown before the Google script is loaded:
+
+> *Dieses Formular nutzt Google reCAPTCHA.*
+> [Datenschutzerklärung]
+> `[Akzeptieren]`
+
+All texts are customisable in the form field settings. The button colour is set globally in the plugin settings.
+
+---
+
 ## How it works
 
 ### User flow (explicit consent mode)
@@ -85,7 +107,7 @@ php /path/to/mautic/bin/console mautic:plugins:reload
 Page loads
   → submit button disabled, hint text shown
   → consent box visible (notice + privacy link + button)
-User clicks "Accept cookies and continue"
+User clicks "Accept"
   → Google reCAPTCHA API script dynamically injected
   → token generated in background
   → submit button enabled
@@ -124,7 +146,7 @@ For local development and testing:
 | **Site Key** | `6LeIxAcTAAAAAJcZVRqyHh71UMIEGNQ_MXjiZKhI` |
 | **Secret Key** | `6LeIxAcTAAAAAGG-vFI1TnRWxMZNFuojJ4WifJWe` |
 
-These keys always return `success: true` with a score of `0.9`.
+> ⚠️ These keys always return `success: true` — **never use them in production**.
 
 ---
 
@@ -135,7 +157,7 @@ These keys always return `success: true` with a score of `0.9`.
 
 **Submit button stays disabled after consent**
 → Open browser dev tools → Console tab. Check for script errors.
-→ Verify your Site Key is correct and the domain is registered.
+→ Verify your Site Key is correct and the domain is registered in Google reCAPTCHA admin.
 
 **Form submission rejected / validation fails**
 → Check `var/logs/mautic.log` for `ixCaptcha` entries.
@@ -145,17 +167,18 @@ These keys always return `success: true` with a score of `0.9`.
 **"More information" link not showing**
 → The Privacy URL field is required. Enter a valid `https://` URL in the field settings.
 
+**Button colour not changing**
+→ Clear the Mautic cache after saving: `php bin/console cache:clear`
+
 ---
 
-## Mautic version compatibility notes
+## Mautic version compatibility
 
 | Version | Symfony | PHP | Status |
 |---------|---------|-----|--------|
 | Mautic 5.x | 5.4 | 8.1+ | ✅ Tested |
 | Mautic 6.x | 6.x | 8.1+ | ✅ Compatible |
-| Mautic 7.x | 7.x | 8.2+ | ✅ Compatible |
-
-> **Mautic 7 note:** PHP 8.2 is the minimum. No plugin-level changes are required beyond the PHP version.
+| Mautic 7.x | 7.x | 8.2+ | ✅ Tested |
 
 ---
 
