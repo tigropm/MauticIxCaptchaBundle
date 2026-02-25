@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use MauticPlugin\MauticIxCaptchaBundle\Command\UninstallCommand;
 use MauticPlugin\MauticIxCaptchaBundle\EventListener\IxCaptchaFormSubscriber;
 use MauticPlugin\MauticIxCaptchaBundle\Form\Extension\FieldTypeDefaultLabelExtension;
 use MauticPlugin\MauticIxCaptchaBundle\Integration\IxCaptchaIntegration;
@@ -45,6 +46,14 @@ return [
             'mautic.ixcaptcha.form.extension.default_label' => [
                 'class' => FieldTypeDefaultLabelExtension::class,
                 'tags'  => ['form.type_extension'],
+            ],
+        ],
+
+        'commands' => [
+            'mautic.ixcaptcha.command.uninstall' => [
+                'class'     => UninstallCommand::class,
+                'arguments' => ['database_connection'],
+                'tag'       => 'console.command',
             ],
         ],
 

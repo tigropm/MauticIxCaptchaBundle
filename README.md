@@ -55,6 +55,30 @@ git pull
 php /path/to/mautic/bin/console cache:clear
 ```
 
+### Uninstall
+
+> ⚠️ Run the uninstall command **before** deleting the plugin folder. It removes all ixCaptcha fields from all forms automatically — no matter how many forms use the field.
+
+```bash
+cd /path/to/mautic
+
+# 1. Remove all ixCaptcha fields from all forms + clean up DB
+php bin/console mautic:ixcaptcha:uninstall
+
+# 2. Delete the plugin folder
+rm -rf plugins/MauticIxCaptchaBundle
+
+# 3. Clear cache and reload plugins
+php bin/console cache:clear
+php bin/console mautic:plugins:reload
+```
+
+The command shows how many fields and forms are affected and asks for confirmation before making any changes. Use `--force` to skip the prompt:
+
+```bash
+php bin/console mautic:ixcaptcha:uninstall --force
+```
+
 ---
 
 ## Configuration
