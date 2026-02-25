@@ -125,14 +125,15 @@ class IxCaptchaFormSubscriber implements EventSubscriberInterface
             return [];
         }
 
+        // Map JS-key → INI-key (read directly from .ini to bypass Symfony translator cache)
         $keys = [
-            'consent_notice'     => 'mautic.ixcaptcha.default.consent_notice',
-            'consent_button'     => 'mautic.ixcaptcha.default.consent_button',
-            'loading'            => 'mautic.ixcaptcha.loading',
-            'submit_blocked'     => 'mautic.ixcaptcha.submit_blocked',
-            'failed'             => 'mautic.ixcaptcha.validation.failed',
+            'consent_notice'      => 'mautic.ixcaptcha.default.consent_notice',
+            'consent_button'      => 'mautic.ixcaptcha.default.consent_button',
+            'loading'             => 'mautic.ixcaptcha.loading',
+            'submit_blocked'      => 'mautic.ixcaptcha.submit_blocked',
+            'failed'              => 'mautic.ixcaptcha.validation.failed',
             'privacy_link_prefix' => 'mautic.ixcaptcha.default.privacy_link_prefix',
-            'privacy_link_word'  => 'mautic.ixcaptcha.default.privacy_link_word',
+            'privacy_link_word'   => 'mautic.ixcaptcha.default.privacy_link_word',
             'privacy_link_suffix' => 'mautic.ixcaptcha.default.privacy_link_suffix',
         ];
 
@@ -143,9 +144,18 @@ class IxCaptchaFormSubscriber implements EventSubscriberInterface
                 continue;
             }
 
+            $iniFile = $translationsDir . '/' . $locale . '/messages.ini';
+            if (!file_exists($iniFile)) {
+                continue;
+            }
+
+            // Read directly from the .ini file — avoids Symfony translator cache entirely,
+            // so changes to translation files are reflected immediately without cache:clear.
+            $iniValues = parse_ini_file($iniFile) ?: [];
+
             $bag = [];
-            foreach ($keys as $jsKey => $transKey) {
-                $bag[$jsKey] = $this->translator->trans($transKey, [], 'messages', $locale);
+            foreach ($keys as $jsKey => $iniKey) {
+                $bag[$jsKey] = $iniValues[$iniKey] ?? '';
             }
 
             $translations[$locale] = $bag;
