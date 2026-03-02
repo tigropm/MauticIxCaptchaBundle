@@ -1,8 +1,6 @@
 # Security Report – MauticIxCaptchaBundle
 
 **Datum:** 02.03.2026
-**Getestete URL:** https://wp-devtest.index-dev.de/mautic-formular/
-**Mautic-Instanz:** https://mautic7rc.index-dev.de
 **Plugin-Version (Commit):** `4a9e44b`
 **reCAPTCHA-Keys:** Echte Produktiv-Keys (kein Test-Modus)
 
