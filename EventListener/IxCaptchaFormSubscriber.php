@@ -76,7 +76,13 @@ class IxCaptchaFormSubscriber implements EventSubscriberInterface
                 'addInputAttributes'     => false,
                 'addContainerAttributes' => false,
                 'addMappedFieldList'     => false,
-                'addSaveResult'          => false,
+                // NOTE: Do NOT set addSaveResult => false here!
+                // Mautic adds any field type with addSaveResult=false to its
+                // internal "viewOnlyFields" list. For fields in that list,
+                // SubmissionModel::saveSubmission() hits a `continue` statement
+                // that skips ALL processing — including our custom validator.
+                // Omitting this key keeps the field in the normal processing path
+                // so the reCAPTCHA token is validated server-side on every submit.
                 'addBehaviorFields'      => false,
                 'addIsRequired'          => false,
             ],
